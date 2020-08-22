@@ -105,3 +105,6 @@ dist
 
 # Don't put credentials file in
 credentials.json
+
+# Don't include localstorage
+botstorage
