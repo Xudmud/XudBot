@@ -108,3 +108,6 @@ credentials.json
 
 # Don't include localstorage
 botstorage
+
+# Other miscellaneous files
+Future\ stuff
