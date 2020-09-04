@@ -7,7 +7,6 @@ var fs = require('fs');
     doesn't involve plaintext files */
 var obj = JSON.parse(fs.readFileSync('credentials.json', 'utf8'));
 
-
 //TODO: Set up listener for hosts/raids, see what Twitch captures.
 //TODO: Set up booleans for different games
 //TODO: Set up commands for Harry Potter games
@@ -15,8 +14,7 @@ var obj = JSON.parse(fs.readFileSync('credentials.json', 'utf8'));
 //TODO: Set up command for pickup races
 //TODO: Set up command for practice
 
-
-//Define configuration options
+//Define configuration options for bot account.
 const opts = {
     identity: {
         username: obj.uname,
@@ -25,34 +23,57 @@ const opts = {
     channels: obj.chan
 };
 
+//Define configuration options for Twitch listener, if needed.
+/*const listenOpts = {
+    identity: {
+        username: obj.tuname,
+        password: obj.tpword
+    }
+    channels: obj.chan
+}*/
+
 //Create a client with the options
 const client = new tmi.client(opts);
+
+//Create a channel listener with its options
+//TODO: Put in the appropriate commands
 
 //Register event handlers
 client.on('message', onMessageHandler);
 client.on('connected', onConnectedHandler);
 
-//Connect to Twitch
+//Connect bot to Twitch
 client.connect();
 
-/* Booleans for game state. Can change which commands are available. */
+//Connect channel listener to Twitch
 
+/* Booleans for game state. Can change which commands are available. */
+var gameIsFreeEnterprise = 0;
+var gameIsKingdomHearts = 0;
+var hours = 0;
 
 /* Auto-messages */
 /* Hourly check. Stay hydrated and don't lose track of time. */
 function waterCheck(target)
 {
-    client.say(target,`@Xudmud Stay hydrated! Get up and take a quick break!`);
+    hours += 1;
+    if(hours === 1)
+        client.say(target,`@Xudmud You've been live for ${hours} hour! Get up and take a quick break, and stay hydrated!`);
+    else
+        client.say(target,`@Xudmud You've been live for ${hours} hours! Get up and take a quick break, and stay hydrated!`);
     console.log(`Stay hydrated!`);
 }
 
-/* FF4FE Flags stuff*/
+/* FF4FE Flags and Seed*/
 var seed = '';
 var flags = '';
 
+//Timeouts. Prevents commands from being spammed
 var seedOnCooldown = 0;
 var flagsOnCooldown = 0;
 var seedmeOnCooldown = 0;
+var affiliateOnCooldown = 0;
+var localStorageActive = 1;
 
 //Set up localstorage. Attempt to set up new one if none exists.
 if(typeof localStorage === "undefined" || localStorage === null) {
@@ -66,18 +87,23 @@ try {
 } catch(e) {
     seed = `***No seed set!***`;
     console.log(`ERROR: Couldn't read seed from localstorage`);
-    localStorage.setItem(`seed`,seed);
+    localStorageActive = 0;
+    //localStorage.setItem(`seed`,seed);
 }
+
 try {
     flags = localStorage.getItem(`flags`);
 } catch(e) {
     flags = `***No flags set!***`;
     console.log(`ERROR: Couldn't read flags from localstorage`);
-    localStorage.setItem(`flags`,flags);
+    localStorageActive = 0;
+    //localStorage.setItem(`flags`,flags);
 }
 
 //Message handler, called on each message.
 //TODO: Find a way to determine bot command that doesn't involve a long if-then-else chain
+//TODO: Clean up logs, log actions to separate file.
+//TODO: Investigate how to catch mod actions.
 function onMessageHandler(target, context, msg, self) {
     //logger, if needed. Look into logging to file?
     let cont = JSON.stringify(context);
@@ -87,10 +113,24 @@ function onMessageHandler(target, context, msg, self) {
     //Remove whitespace from chat message
     const commandName = msg.trim();
 
+    //First, check if a known spam message.
+    if(commandName === `Twitch Viewb℺t, Seаrch on YouTube "viewergod".`) {
+        client.say(target, `/timeout ${context.username} 86400`)
+        console.log(`* Timed out ${context.username} for viewbot spam`)
+    }
+
     //If a known command, execute it!
+    //Dice command. Rolls a d20.
     if(commandName === '!dice') {
         const num = rollDice();
         client.say(target, `You rolled a ${num}`);
+        console.log(`* Executed ${commandName} command`);
+    }
+
+    //SUBtember
+    if(commandName ===  `!subtember` || commandName === `!SUBtember`)
+    {
+        client.say(target,`September is SUBtember! During the month of September, new subscriptions are discounted! 20% off for the first period of a recurring 1-month sub, 25% for a 3-month, and 30% for a 6-month. More details at https://blog.twitch.tv/en2020/08/27/subtember-returns-the-more-you-support-the-more-you-save/`);
         console.log(`* Executed ${commandName} command`);
     }
     //Retrieve seed. 30-second cooldown for users, broadcaster exempt.
@@ -132,6 +172,12 @@ function onMessageHandler(target, context, msg, self) {
         client.say(target,`Final Fantasy IV Free Enterprise is an open-world FFIV SNES randomizer hack created by b0ardface. You start the game with the airship and can complete any of the quests available to you in any order you wish in order to find the Crystal and a way to the moon to defeat Zeromus in whatever form he takes.  For more info and to play yourself, visit http://ff4fe.com/`);
         console.log(`* Executed ${commandName} command`);
     }*/
+
+    else if(commandName === `!affiliate`) {
+        client.say(target,`I'm now a Twitch affiliate! This means you can support the channel by subscribing to it or cheering with Bits!`)
+        console.log(`* Executed ${commandName} command`)
+    }
+
     else if(commandName === `!flags`) {
         if(flagsOnCooldown && context.username != 'xudmud') { return; }
         const flags = getFlags();
@@ -153,7 +199,7 @@ function onMessageHandler(target, context, msg, self) {
         }
     }
     else if(commandName === `!braid`) {
-        client.say(target,`Yes, I was the person who ran Braid at SGDQ 2013.`);
+        client.say(target,`Yes, I was the person who ran Braid at SGDQ 2013. I've gotten this question more frequently than expected.`);
     }
     //Race start and race end commands. Enables and disables emote-only mode on and off. 
     //Give mods access as a quick way to toggle on/off if you forget and can't pause a race to turn it on.
