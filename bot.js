@@ -2,10 +2,11 @@
 const tmi = require('tmi.js');
 var fs = require('fs');
 
-//Read in the credentials file
-/* TODO: Obfusticate the contents or find a way to store credentials that
+//Read in the json files
+/* TODO: Obfusticate the contents of credentials or find a way to store credentials that
     doesn't involve plaintext files */
-var obj = JSON.parse(fs.readFileSync('credentials.json', 'utf8'));
+var creds = JSON.parse(fs.readFileSync('credentials.json', 'utf8'));
+var resps = JSON.parse(fs.readFileSync(`responses.json`,'utf8'));
 
 //TODO: Set up listener for hosts/raids, see what Twitch captures.
 //TODO: Set up booleans for different games
@@ -17,10 +18,10 @@ var obj = JSON.parse(fs.readFileSync('credentials.json', 'utf8'));
 //Define configuration options for bot account.
 const opts = {
     identity: {
-        username: obj.uname,
-        password: obj.pword
+        username: creds.uname,
+        password: creds.pword
     },
-    channels: obj.chan
+    channels: creds.chan
 };
 
 //Define configuration options for Twitch listener, if needed.
@@ -120,17 +121,19 @@ function onMessageHandler(target, context, msg, self) {
     }
 
     //If a known command, execute it!
-    //Dice command. Rolls a d20.
-    if(commandName === '!dice') {
-        const num = rollDice();
-        client.say(target, `You rolled a ${num}`);
+    //First, check static commands. Checks if the message has a predefined static response.
+    //TODO: Change so the first word of the message is checked, with the second word
+    //possibly being a specific user to ping.
+    if(resps.hasOwnProperty(commandName))
+    {
+        client.say(target,resps[commandName]);
         console.log(`* Executed ${commandName} command`);
     }
 
-    //SUBtember
-    if(commandName ===  `!subtember` || commandName === `!SUBtember`)
-    {
-        client.say(target,`September is SUBtember! During the month of September, new subscriptions are discounted! 20% off for the first period of a recurring 1-month sub, 25% for a 3-month, and 30% for a 6-month. More details at https://blog.twitch.tv/en2020/08/27/subtember-returns-the-more-you-support-the-more-you-save/`);
+    //Dice command. Rolls a d20.
+    else if(commandName === '!dice') {
+        const num = rollDice();
+        client.say(target, `You rolled a ${num}`);
         console.log(`* Executed ${commandName} command`);
     }
     //Retrieve seed. 30-second cooldown for users, broadcaster exempt.
@@ -143,17 +146,6 @@ function onMessageHandler(target, context, msg, self) {
         setTimeout(enableSeed,30000);
     }
     //List commands. Some are omitted from this list because they are broadcaster-specific.
-    else if(commandName === `!help` || commandName === `!commands`) {
-        client.say(target, `Currently available user commands: !dice, !seed, !flags, !help, !commands, !about`);
-        //There should be a cooldown here...
-        console.log(`* Executed ${commandName} command`);
-    }
-    else if(commandName === `!about`) {
-        client.say(target, `Hi there! I'm XudBot! My creator is new to the whole Twitch bot making thing, so please bear with him as he gets me up and running! Type '!commands' for a list of available commands.`);
-        //There should be a cooldown here...
-        console.log(`* Executed ${commandName} command`);
-    }
-
     else if(commandName.indexOf(`!setseed`) === 0) {
         //Don't execute if it's just !setseed
         if(commandName === `!setseed`) {
@@ -168,16 +160,6 @@ function onMessageHandler(target, context, msg, self) {
             }
         }
     }
-    /*else if(commandName === `!ff4fe`) {
-        client.say(target,`Final Fantasy IV Free Enterprise is an open-world FFIV SNES randomizer hack created by b0ardface. You start the game with the airship and can complete any of the quests available to you in any order you wish in order to find the Crystal and a way to the moon to defeat Zeromus in whatever form he takes.  For more info and to play yourself, visit http://ff4fe.com/`);
-        console.log(`* Executed ${commandName} command`);
-    }*/
-
-    else if(commandName === `!affiliate`) {
-        client.say(target,`I'm now a Twitch affiliate! This means you can support the channel by subscribing to it or cheering with Bits!`)
-        console.log(`* Executed ${commandName} command`)
-    }
-
     else if(commandName === `!flags`) {
         if(flagsOnCooldown && context.username != 'xudmud') { return; }
         const flags = getFlags();
@@ -198,9 +180,6 @@ function onMessageHandler(target, context, msg, self) {
             }
         }
     }
-    else if(commandName === `!braid`) {
-        client.say(target,`Yes, I was the person who ran Braid at SGDQ 2013. I've gotten this question more frequently than expected.`);
-    }
     //Race start and race end commands. Enables and disables emote-only mode on and off. 
     //Give mods access as a quick way to toggle on/off if you forget and can't pause a race to turn it on.
     else if(commandName === `!racestart`) {
@@ -217,10 +196,11 @@ function onMessageHandler(target, context, msg, self) {
     else if(commandName === `!raceend`) {
         if(context.username === 'xudmud') {
             client.say(target, `/emoteonlyoff`);
+            client.say(target,`Race mode is now off! The stream may briefly go down while I transition back to no delay.`)
             console.log(`* Executed ${commandName} command`)
         }
         else {
-            client.say(target,`Only the broadcaster can use thtat command!`);
+            client.say(target,`Only the broadcaster can use that command!`);
             console.log(`! User ${context.username} attempted to use '${commandName}'`);
         }
     }
